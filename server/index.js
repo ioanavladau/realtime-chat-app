@@ -13,9 +13,24 @@ const app = express();
 const server = http.createServer(app);
 const io = socketio(server);
 
+// db
+const mongoose = require('mongoose');
+
+// define Schema
+let MessageSchema = mongoose.Schema({
+    sender: String,
+    message: String,
+    room: String, 
+    writtenAt: String
+});
+
+let Message = mongoose.model('Message', MessageSchema, 'messages');
+
+
 // call router as middleware
 app.use(router);
 app.use(cors());
+
 
 io.on('connection', (socket) => {
     console.log('We have a new connection!');
@@ -44,6 +59,38 @@ io.on('connection', (socket) => {
 
         io.to(user.room).emit('message', { user: user.name, text: message });
         io.to(user.room).emit('roomData', { room: user.room, users: getUsersInRoom(user.room) });
+
+
+        // make a db connection
+        mongoose.connect('mongodb://localhost:27017/react-chat-app');
+
+            
+        // get reference to database
+        const db = mongoose.connection;
+
+        db.on('error', console.error.bind(console, 'connection error:'));
+
+        // save msgs to db
+        db.once('open', function() {
+            console.log("Connection Successful!");
+            
+
+        
+            // compile schema to model
+            Message = mongoose.model('Message', MessageSchema, 'messages');
+        
+            // a document instance
+            let current_date=new Date();
+        
+            let message1 = new Message({ sender: user.name, message: message, room: user.room, writtenAt: current_date });
+        
+            // save model to database
+            message1.save(function (err, message) {
+                if (err) return console.error(err);
+                console.log(message1.sender + " saved to messages collection.");
+            });
+            
+        });
 
         // do something after the message is sent on the f-e
         callback();
